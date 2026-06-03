@@ -3,7 +3,7 @@ import { check, sleep } from 'k6';
 
 // k6 test configuration
 export const options = {
-    vus: 10,             // concurrent virtual users (parallel requests)
+    vus: 20,             // concurrent virtual users (parallel requests)
     duration: '1m'
 };
 

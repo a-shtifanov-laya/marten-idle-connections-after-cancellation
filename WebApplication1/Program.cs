@@ -1,5 +1,7 @@
 using JasperFx;
 using JasperFx.Events;
+using JasperFx.Events.Daemon;
+using JasperFx.Events.Projections;
 using JasperFx.MultiTenancy;
 using Marten;
 using WebApplication1;
@@ -17,15 +19,23 @@ var marten = builder.Services.AddMarten(o =>
     o.Events.EnableAdvancedAsyncTracking = true;
     o.Events.EnableEventTypeIndex = true;
     o.Events.TenancyStyle = TenancyStyle.Conjoined;
+    o.Events.UseOptimizedProjectionRebuilds = true;
     o.Events.AddEventType<BasketCreated>();
     o.DisableNpgsqlLogging = true;
-    o.MultiTenantedWithSingleServer("PORT = 5432; HOST = 127.0.0.1; PASSWORD = 'Password12!'; USER ID = 'postgres';Persist Security Info=true;",
+    o.MultiTenantedWithSingleServer("PORT = 5432; HOST = 127.0.0.1; PASSWORD = 'Password12!'; USER ID = 'postgres';Persist Security Info=true; Connection Idle Lifetime=30; Connection Pruning Interval=10;",
         x => x.WithTenants("1", "2", "3").InDatabaseNamed("tenant_group1").WithTenants("10", "11", "12").InDatabaseNamed("tenant_group2"));
     o.Advanced.DefaultTenantUsageEnabled = false;
+    o.Projections.LiveStreamAggregation<Basket>();
+    o.Projections.DaemonLockId = 1;
+    o.Projections.StaleSequenceThreshold = TimeSpan.FromSeconds(10);
+    o.Projections.Add<BasketProjection>(ProjectionLifecycle.Async);
+    o.RegisterDocumentType<BasketDocument>();
+    o.Policies.AllDocumentsAreMultiTenanted();
 });
 marten.UseLightweightSessions();
 marten.ApplyAllDatabaseChangesOnStartup();
 marten.AssertDatabaseMatchesConfigurationOnStartup();
+marten.AddAsyncDaemon(DaemonMode.HotCold);
 
 var app = builder.Build();
 
