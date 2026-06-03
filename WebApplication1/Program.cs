@@ -4,6 +4,7 @@ using JasperFx.Events.Daemon;
 using JasperFx.Events.Projections;
 using JasperFx.MultiTenancy;
 using Marten;
+using Marten.Storage;
 using WebApplication1;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -43,9 +44,14 @@ app.MapPost("/tenants/{tenantCode}/basket", async (string tenantCode, IDocumentS
 {
     await using var session = store.LightweightSession(tenantCode);
     var id = Guid.CreateVersion7().ToString();
-    var stream = await session.Events.FetchForExclusiveWriting<Basket>(Basket.StreamName(id), ct);
+    
     var rand = new Random();
-    await Task.Delay(rand.Next(50, 500), ct);
+    var temp1 = session.Events.FetchLatest<Basket>(Basket.StreamName(id), ct);
+    await Task.Delay(rand.Next(50, 300), ct);
+    var temp2 = session.Query<BasketDocument>().Where(x => x.Id == id).FirstOrDefaultAsync(ct);
+    
+    var stream = await session.Events.FetchForExclusiveWriting<Basket>(Basket.StreamName(id), ct);
+    await Task.Delay(rand.Next(50, 300), ct);
     stream.AppendMany(new BasketCreated(tenantCode, id, $"New Basket {id}"));
     await session.SaveChangesAsync(ct);
     return Results.Ok(id);
